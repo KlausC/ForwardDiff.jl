@@ -117,9 +117,17 @@ This constructor does not store/modify `x`.
 function GradientConfig(f::F,
                         x::AbstractArray{V},
                         ::Chunk{N} = Chunk(x),
-                        ::T = Tag(f, V)) where {F,V,N,T}
+                        ::T = Tag(f, V)) where {F,V<:Real,N,T}
     seeds = construct_seeds(Partials{N,V})
     duals = similar(x, Dual{T,V,N})
+    return GradientConfig{T,V,N,typeof(duals)}(seeds, duals)
+end
+function GradientConfig(f::F,
+                        x::AbstractArray{V},
+                        ::Chunk{N} = Chunk(x),
+                        ::T = Tag(f, V)) where {F,R,V<:Complex{R},N,T}
+    seeds = construct_seeds(Partials{N,R})
+    duals = similar(x, Complex{Dual{T,R,N}})
     return GradientConfig{T,V,N,typeof(duals)}(seeds, duals)
 end
 
@@ -154,9 +162,17 @@ This constructor does not store/modify `x`.
 function JacobianConfig(f::F,
                         x::AbstractArray{V},
                         ::Chunk{N} = Chunk(x),
-                        ::T = Tag(f, V)) where {F,V,N,T}
+                        ::T = Tag(f, V)) where {F,V<:Real,N,T}
     seeds = construct_seeds(Partials{N,V})
     duals = similar(x, Dual{T,V,N})
+    return JacobianConfig{T,V,N,typeof(duals)}(seeds, duals)
+end
+function JacobianConfig(f::F,
+                        x::AbstractArray{V},
+                        ::Chunk{N} = Chunk(x),
+                        ::T = Tag(f, V)) where {F,R,V<:Complex{R},N,T}
+    seeds = construct_seeds(Partials{N,V})
+    duals = similar(x, Complex{Dual{T,R,N}})
     return JacobianConfig{T,V,N,typeof(duals)}(seeds, duals)
 end
 

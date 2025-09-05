@@ -2,6 +2,13 @@ struct Partials{N,V} <: AbstractVector{V}
     values::NTuple{N,V}
 end
 
+function Base.real(p::Partials{N,Complex{V}}) where {N,V}
+    Partials{N,V}(real.(p.values))
+end
+function Base.imag(p::Partials{N,Complex{V}}) where {N,V}
+    Partials{N,V}(imag.(p.values))
+end
+
 ##############################
 # Utility/Accessor Functions #
 ##############################
@@ -80,7 +87,7 @@ Base.convert(::Type{Partials{N,V}}, partials::Partials{N,V}) where {N,V} = parti
 @inline Base.:+(a::Partials{N}, b::Partials{N}) where {N} = Partials(add_tuples(a.values, b.values))
 @inline Base.:-(a::Partials{N}, b::Partials{N}) where {N} = Partials(sub_tuples(a.values, b.values))
 @inline Base.:-(partials::Partials) = Partials(minus_tuple(partials.values))
-@inline Base.:*(x::Real, partials::Partials) = partials*x
+@inline Base.:*(x::RealComplex, partials::Partials) = partials*x
 
 @inline function _div_partials(a::Partials, b::Partials, aval, bval)
     return _mul_partials(a, b, inv(bval), -(aval / (bval*bval)))
@@ -106,7 +113,7 @@ if NANSAFE_MODE_ENABLED
         return Partials(mul_tuples(a.values, b.values, x_a, x_b))
     end
 else
-    @inline function Base.:*(partials::Partials, x::Real)
+    @inline function Base.:*(partials::Partials, x::RealComplex)
         return Partials(scale_tuple(partials.values, x))
     end
 

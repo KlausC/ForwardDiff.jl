@@ -8,13 +8,13 @@
 Determines whether the type V is allowed as the scalar type in a
 Dual. By default, only `<:Real` types are allowed.
 """
-can_dual(::Type{<:Real}) = true
+can_dual(::Type{<:RealComplex}) = true
 can_dual(::Type) = false
 
-struct Dual{T,V,N} <: Real
+struct Dual{T,V<:Real,N} <: Real
     value::V
     partials::Partials{N,V}
-    function Dual{T, V, N}(value::V, partials::Partials{N, V}) where {T, V, N}
+    function Dual{T, V, N}(value::V, partials::Partials{N,V}) where {T, V, N}
         can_dual(V) || throw_cannot_dual(V)
         new{T, V, N}(value, partials)
     end
@@ -71,6 +71,7 @@ end
 @inline Dual{T}(value, partial1, partials...) where {T} = Dual{T}(value, tuple(partial1, partials...))
 @inline Dual{T}(value::V, ::Chunk{N}, p::Val{i}) where {T,V,N,i} = Dual{T}(value, single_seed(Partials{N,V}, p))
 @inline Dual(args...) = Dual{Nothing}(args...)
+@inline Dual{T}(value::Complex, args...) where T = complex(Dual{T}(real(value), real.(args...)...), Dual{T}(imag(value), imag.(args...)...))
 
 # we define these special cases so that the "constructor <--> convert" pun holds for `Dual`
 @inline Dual{T,V,N}(x::Dual{T,V,N}) where {T,V,N} = x
@@ -100,11 +101,16 @@ Dual{T,V,N}(x::Base.TwicePrecision) where {T,V,N} =
 end
 
 @inline partials(x) = Partials{0,typeof(x)}(tuple())
-@inline partials(d::Dual) = d.partials
 @inline partials(x, i...) = zero(x)
+@inline partials(d::Dual) = d.partials
 @inline Base.@propagate_inbounds partials(d::Dual, i) = d.partials[i]
 @inline Base.@propagate_inbounds partials(d::Dual, i, j) = partials(d, i).partials[j]
 @inline Base.@propagate_inbounds partials(d::Dual, i, j, k...) = partials(partials(d, i, j), k...)
+@inline complex_partials(d, i) = complex(real(d).partials[i], imag(d).partials[i])
+@inline partials(d::Complex{<:Dual}) = complex(real(d).partials, imag(d).partials)
+@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i) = complex_partials(d, i)
+@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i, j) = complex_partials(partials(d, i), j)
+@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i, j, k...) = complex_partials(partials(d, i, j), k...)
 
 @inline Base.@propagate_inbounds partials(::Type{T}, x, i...) where T = partials(x, i...)
 @inline Base.@propagate_inbounds partials(::Type{T}, d::Dual{T}, i...) where T = partials(d, i...)
@@ -117,21 +123,22 @@ end
 end
 
 
-@inline npartials(::Dual{T,V,N}) where {T,V,N} = N
+@inline npartials(::V) where V<:RealComplex = npartials(V)
 @inline npartials(::Type{Dual{T,V,N}}) where {T,V,N} = N
+@inline npartials(::Type{Complex{Dual{T,V,N}}}) where {T,V,N} = N
 
 @inline order(::Type{V}) where {V} = 0
 @inline order(::Type{Dual{T,V,N}}) where {T,V,N} = 1 + order(V)
 
-@inline valtype(::V) where {V} = V
+@inline valtype(::V) where {V} = valtype(V)
 @inline valtype(::Type{V}) where {V} = V
-@inline valtype(::Dual{T,V,N}) where {T,V,N} = V
 @inline valtype(::Type{Dual{T,V,N}}) where {T,V,N} = V
+@inline valtype(::Type{Complex{Dual{T,V,N}}}) where {T,V,N} = Complex{V}
 
-@inline tagtype(::V) where {V} = Nothing
+@inline tagtype(::V) where {V} = tagtype(V)
 @inline tagtype(::Type{V}) where {V} = Nothing
-@inline tagtype(::Dual{T,V,N}) where {T,V,N} = T
 @inline tagtype(::Type{Dual{T,V,N}}) where {T,V,N} = T
+@inline tagtype(::Type{Complex{Dual{T,V,N}}}) where {T,V,N} = T
 
 ####################################
 # N-ary Operation Definition Tools #
@@ -466,7 +473,7 @@ for R in (AbstractIrrational, Real, BigFloat, Bool)
     end
 end
 
-@inline Base.convert(::Type{Dual{T,V,N}}, d::Dual{T}) where {T,V,N} = Dual{T}(V(value(d)), convert(Partials{N,V}, partials(d)))
+@inline Base.convert(::Type{Dual{T,V,N}}, d::Dual{T,W}) where {T,V,N,W} = Dual{T}(V(value(d)), convert(Partials{N,V}, partials(d)))
 @inline Base.convert(::Type{Dual{T,Dual{T,V,M},N}}, d::Dual{T,V,M}) where {T,V,N,M} = Dual{T}(d, Partials{N,Dual{T,V,M}}(zero_tuple(NTuple{N,Dual{T,V,M}})))
 @inline Base.convert(::Type{Dual{T,V,N}}, x) where {T,V,N} = Dual{T}(V(x), zero(Partials{N,V}))
 @inline Base.convert(::Type{Dual{T,V,N}}, x::Number) where {T,V,N} = Dual{T}(V(x), zero(Partials{N,V}))

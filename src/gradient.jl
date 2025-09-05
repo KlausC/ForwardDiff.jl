@@ -62,11 +62,24 @@ function extract_gradient!(::Type{T}, result::DiffResult, dual::Dual) where {T}
     return result
 end
 
+function extract_gradient!(::Type{T}, result::DiffResult, cdual::Complex{<:Dual}) where {T}
+    result = DiffResults.value!(result, value(T, complex(real(cdual), imag(cdual))))
+    result = DiffResults.gradient!(result, partials(T, real(cdual)) + partials(T, imag(cdual)) * im)
+    return result
+end
+
 extract_gradient!(::Type{T}, result::AbstractArray, y::Real) where {T} = fill!(result, zero(y))
 function extract_gradient!(::Type{T}, result::AbstractArray, dual::Dual) where {T}
     idxs = structural_eachindex(result)
     for (i, idx) in zip(1:npartials(dual), idxs)
         result[idx] = partials(T, dual, i)
+    end
+    return result
+end
+function extract_gradient!(::Type{T}, result::AbstractArray, cdual::Complex{<:Dual}) where {T}
+    idxs = structural_eachindex(result)
+    for (i, idx) in zip(1:npartials(real(cdual)), idxs)
+        result[idx] = complex(partials(T, real(cdual), i), partials(T, imag(cdual), i))
     end
     return result
 end
@@ -76,6 +89,15 @@ function extract_gradient_chunk!(::Type{T}, result, dual, index, chunksize) wher
     idxs = Iterators.drop(structural_eachindex(result), offset)
     for (i, idx) in zip(1:chunksize, idxs)
         result[idx] = partials(T, dual, i)
+    end
+    return result
+end
+
+function extract_gradient_chunk!(::Type{T}, result, cdual::Complex{<:Dual}, index, chunksize) where {T}
+    offset = index - 1
+    idxs = Iterators.drop(structural_eachindex(result), offset)
+    for (i, idx) in zip(1:chunksize, idxs)
+        result[idx] = complex(partials(T, real(cdual), i), partials(T, imag(cdual), i))
     end
     return result
 end
@@ -96,7 +118,7 @@ const GRAD_ERROR = DimensionMismatch("gradient(f, x) expects that f(x) is a real
 
 function vector_mode_gradient(f::F, x, cfg::GradientConfig{T}) where {T, F}
     ydual = vector_mode_dual_eval!(f, cfg, x)
-    ydual isa Real || throw(GRAD_ERROR)
+    ydual isa RealComplex || throw(GRAD_ERROR)
     result = similar(x, valtype(ydual))
     return extract_gradient!(T, result, ydual)
 end
