@@ -1,12 +1,5 @@
-struct Partials{N,V} <: AbstractVector{V}
+struct Partials{N,V<:Real} <: AbstractVector{V}
     values::NTuple{N,V}
-end
-
-function Base.real(p::Partials{N,Complex{V}}) where {N,V}
-    Partials{N,V}(real.(p.values))
-end
-function Base.imag(p::Partials{N,Complex{V}}) where {N,V}
-    Partials{N,V}(imag.(p.values))
 end
 
 ##############################
@@ -79,10 +72,6 @@ Base.promote_rule(::Type{Partials{N,A}}, ::Type{Partials{N,B}}) where {N,A,B} = 
 
 Base.convert(::Type{Partials{N,V}}, partials::Partials) where {N,V} = Partials{N,V}(partials.values)
 Base.convert(::Type{Partials{N,V}}, partials::Partials{N,V}) where {N,V} = partials
-
-########################
-# Arithmetic Functions #
-########################
 
 @inline Base.:+(a::Partials{N}, b::Partials{N}) where {N} = Partials(add_tuples(a.values, b.values))
 @inline Base.:-(a::Partials{N}, b::Partials{N}) where {N} = Partials(sub_tuples(a.values, b.values))
@@ -232,3 +221,56 @@ end
 ###################
 
 Base.show(io::IO, p::Partials{N}) where {N} = print(io, "Partials", p.values)
+
+
+# The following struct is needed, because Complex requires Real element type.
+struct CPartials{N,R} <: AbstractVector{Complex{R}}
+    re::Partials{N,R}
+    im::Partials{N,R}
+end
+
+CPartials
+
+########################
+# Arithmetic Functions #
+########################
+
+@inline Base.:+(c::CPartials, d::CPartials) = CPartials(real(c) + real(d), imag(c) + imag(d))
+@inline Base.:-(c::CPartials, d::CPartials) = CPartials(real(c) - real(d), imag(c) - imag(d))
+@inline Base.:-(c::CPartials) = CPartials(-real(c), -imag(c))
+@inline Base.:*(c::CPartials, a::RealComplex) = a * c
+@inline Base.:*(a::Real, c::CPartials) = CPartials(a * real(c), a * imag(c))
+@inline function Base.:*(a::Complex, c::CPartials)
+    cr, ci = reim(c)
+    ar, ai = reim(a)
+    return CPartials(_mul_partials(cr, ci, ar, -ai), _mul_partials(cr, ci, ai, ar))
+end
+
+##############################
+# Utility/Accessor Functions #
+##############################
+
+@inline Base.real(c::CPartials) = c.re
+@inline Base.imag(c::CPartials) = c.im
+
+@inline valtype(::CPartials{N,V}) where {N,V} = Complex{V}
+@inline valtype(::Type{CPartials{N,V}}) where {N,V} = Complex{V}
+
+@inline npartials(::CPartials{N}) where {N} = N
+@inline npartials(::Type{CPartials{N,V}}) where {N,V} = N
+
+@inline Base.length(::CPartials{N}) where {N} = N
+@inline Base.size(::CPartials{N}) where {N} = (N,)
+
+@inline Base.@propagate_inbounds Base.getindex(c::CPartials, i::Int) = complex(real(c)[i], imag(c)[i])
+function  Base.iterate(c::CPartials, i=1)
+    v = iterate(real(c), i)
+    v === nothing && return v
+    w = iterate(imag(c), i)
+    return complex(v[1], w[1]), v[2]
+end
+
+Base.IndexStyle(::Type{<:CPartials}) = IndexLinear()
+
+# Can be deleted after https://github.com/JuliaLang/julia/pull/29854 is on a release
+Base.mightalias(x::AbstractArray, y::CPartials) = false

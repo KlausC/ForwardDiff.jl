@@ -20,6 +20,8 @@ struct Dual{T,V<:Real,N} <: Real
     end
 end
 
+const CDual{T,V,N} = Union{Dual{T,V,N}, Complex{Dual{T,V,N}}}
+
 ##########
 # Traits #
 ##########
@@ -63,21 +65,30 @@ tag can be extracted, so it should be used in the _innermost_ function.
     C = promote_type(A, B)
     return Dual{T}(convert(C, value), convert(Partials{N,C}, partials))
 end
+@inline function Dual{T}(value::A, partials::CPartials{N,B}) where {T,N,A<:Complex,B}
+    return complex(Dual{T}(real(value), real(partials)), Dual{T}(imag(value), imag(partials)))
+end
+@inline function Dual{T}(value::A, partials::Partials{N,B}) where {T,N,A<:Complex,B}
+    return complex(Dual{T}(real(value), partials), Dual{T}(imag(value), zero(partials)))
+end
 
-@inline Dual{T}(value, partials::Tuple) where {T} = Dual{T}(value, Partials(partials))
-@inline Dual{T}(value, partials::Tuple{}) where {T} = Dual{T}(value, Partials{0,typeof(value)}(partials))
+@inline Dual{T}(value, partials::Tuple) where {T} = Dual{T}(value, _to_partials(partials))
 @inline Dual{T}(value) where {T} = Dual{T}(value, ())
 @inline Dual{T}(x::Dual{T}) where {T} = Dual{T}(x, ())
 @inline Dual{T}(value, partial1, partials...) where {T} = Dual{T}(value, tuple(partial1, partials...))
 @inline Dual{T}(value::V, ::Chunk{N}, p::Val{i}) where {T,V,N,i} = Dual{T}(value, single_seed(Partials{N,V}, p))
 @inline Dual(args...) = Dual{Nothing}(args...)
-@inline Dual{T}(value::Complex, args...) where T = complex(Dual{T}(real(value), real.(args...)...), Dual{T}(imag(value), imag.(args...)...))
 
 # we define these special cases so that the "constructor <--> convert" pun holds for `Dual`
 @inline Dual{T,V,N}(x::Dual{T,V,N}) where {T,V,N} = x
 @inline Dual{T,V,N}(x) where {T,V,N} = convert(Dual{T,V,N}, x)
 @inline Dual{T,V,N}(x::Number) where {T,V,N} = convert(Dual{T,V,N}, x)
 @inline Dual{T,V}(x) where {T,V} = convert(Dual{T,V}, x)
+
+@inline _to_partials(::Real, t::Tuple) = Partials(t)
+@inline _to_partials(::Complex, t::Tuple) = CPartials(t)
+@inline _to_partials(::V, t::Tuple{}) where V<:Real = Partials{0,V}(t)
+@inline _to_partials(::V, t::Tuple{}) where {R,V<:Complex{R}} = CPartials{0,R}(t)
 
 # Fix method ambiguity issue by adapting the definition in Base to `Dual`s
 Dual{T,V,N}(x::Base.TwicePrecision) where {T,V,N} =
@@ -89,12 +100,13 @@ Dual{T,V,N}(x::Base.TwicePrecision) where {T,V,N} =
 
 @inline value(x) = x
 @inline value(d::Dual) = d.value
+@inline value(c::Complex{<:Dual}) = complex(value(c.re), value(c.im))
 
 @inline value(::Type{T}, x) where T = x
-@inline value(::Type{T}, d::Dual{T}) where T = value(d)
-@inline function value(::Type{T}, d::Dual{S}) where {T,S}
+@inline value(::Type{T}, d::CDual{T}) where T = value(d)
+@inline function value(::Type{T}, d::CDual{S}) where {T,S}
     if S ≺ T
-        d
+        value(d)
     else
         throw(DualMismatchError(T,S))
     end
@@ -103,18 +115,13 @@ end
 @inline partials(x) = Partials{0,typeof(x)}(tuple())
 @inline partials(x, i...) = zero(x)
 @inline partials(d::Dual) = d.partials
-@inline Base.@propagate_inbounds partials(d::Dual, i) = d.partials[i]
-@inline Base.@propagate_inbounds partials(d::Dual, i, j) = partials(d, i).partials[j]
-@inline Base.@propagate_inbounds partials(d::Dual, i, j, k...) = partials(partials(d, i, j), k...)
-@inline complex_partials(d, i) = complex(real(d).partials[i], imag(d).partials[i])
-@inline partials(d::Complex{<:Dual}) = complex(real(d).partials, imag(d).partials)
-@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i) = complex_partials(d, i)
-@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i, j) = complex_partials(partials(d, i), j)
-@inline Base.@propagate_inbounds partials(d::Complex{<:Dual}, i, j, k...) = complex_partials(partials(d, i, j), k...)
-
+@inline partials(c::Complex{<:Dual}) = CPartials(partials(c.re), partials(c.im))
+@inline Base.@propagate_inbounds partials(d::CDual, i) = partials(d)[i]
+@inline Base.@propagate_inbounds partials(d::CDual, i, j) = partials(d, i).partials[j]
+@inline Base.@propagate_inbounds partials(d::CDual, i, j, k...) = partials(partials(d, i, j), k...)
 @inline Base.@propagate_inbounds partials(::Type{T}, x, i...) where T = partials(x, i...)
-@inline Base.@propagate_inbounds partials(::Type{T}, d::Dual{T}, i...) where T = partials(d, i...)
-@inline function partials(::Type{T}, d::Dual{S}, i...) where {T,S}
+@inline Base.@propagate_inbounds partials(::Type{T}, d::CDual{T}, i...) where T = partials(d, i...)
+@inline function partials(::Type{T}, d::CDual{S}, i...) where {T,S}
     if S ≺ T
         zero(d)
     else
@@ -122,6 +129,8 @@ end
     end
 end
 
+@inline complex_partials(d::Dual{T,V}) where {T,V} = tuple(partials(d), Partials{0,V}(tuple()))
+@inline complex_partials(d::Complex{<:Dual}) = tuple(partials(real(d)), partials(imag(d)))
 
 @inline npartials(::V) where V<:RealComplex = npartials(V)
 @inline npartials(::Type{Dual{T,V,N}}) where {T,V,N} = N
@@ -147,13 +156,13 @@ end
 macro define_binary_dual_op(f, xy_body, x_body, y_body)
     FD = ForwardDiff
     defs = quote
-        @inline $(f)(x::$FD.Dual{Txy}, y::$FD.Dual{Txy}) where {Txy} = $xy_body
-        @inline $(f)(x::$FD.Dual{Tx}, y::$FD.Dual{Ty}) where {Tx,Ty} = Ty ≺ Tx ? $x_body : $y_body
+        @inline $(f)(x::$FD.CDual{Txy}, y::$FD.CDual{Txy}) where {Txy} = $xy_body
+        @inline $(f)(x::$FD.CDual{Tx}, y::$FD.CDual{Ty}) where {Tx,Ty} = Ty ≺ Tx ? $x_body : $y_body
     end
     for R in AMBIGUOUS_TYPES
         expr = quote
-            @inline $(f)(x::$FD.Dual{Tx}, y::$R) where {Tx} = $x_body
-            @inline $(f)(x::$R, y::$FD.Dual{Ty}) where {Ty} = $y_body
+            @inline $(f)(x::$FD.CDual{Tx}, y::$R) where {Tx} = $x_body
+            @inline $(f)(x::$R, y::$FD.CDual{Ty}) where {Ty} = $y_body
         end
         append!(defs.args, expr.args)
     end
@@ -207,35 +216,57 @@ macro define_ternary_dual_op(f, xyz_body, xy_body, xz_body, yz_body, x_body, y_b
 end
 
 # Support complex-valued functions such as `hankelh1`
-function dual_definition_retval(::Val{T}, val::Real, deriv::Real, partial::Partials) where {T}
-    return Dual{T}(val, deriv * partial)
+function dual_definition_retval(::Val{T}, val::Real, deriv::Real, d::Dual) where {T}
+    return Dual{T}(val, deriv * partials(d))
 end
-function dual_definition_retval(::Val{T}, val::Real, deriv1::Real, partial1::Partials, deriv2::Real, partial2::Partials) where {T}
-    return Dual{T}(val, _mul_partials(partial1, partial2, deriv1, deriv2))
+function dual_definition_retval(::Val{T}, val::Real, deriv1::Real, d1::Dual, deriv2::Real, d2::Dual) where {T}
+    return Dual{T}(val, _mul_partials(partials(d1), partials(d2), deriv1, deriv2))
 end
-function dual_definition_retval(::Val{T}, val::Complex, deriv::Union{Real,Complex}, partial::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::Complex, deriv::Union{Real,Complex}, d::Dual) where {T}
     reval, imval = reim(val)
     if deriv isa Real
-        p = deriv * partial
+        p = deriv * partials(d)
         return Complex(Dual{T}(reval, p), Dual{T}(imval, zero(p)))
     else
         rederiv, imderiv = reim(deriv)
-        return Complex(Dual{T}(reval, rederiv * partial), Dual{T}(imval, imderiv * partial))
+        return Complex(Dual{T}(reval, rederiv * partials(d)), Dual{T}(imval, imderiv * partials(d)))
     end
 end
-function dual_definition_retval(::Val{T}, val::Complex, deriv1::Union{Real,Complex}, partial1::Partials, deriv2::Union{Real,Complex}, partial2::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::Complex, deriv1::Union{Real,Complex}, d1::Dual, deriv2::Union{Real,Complex}, d2::Dual) where {T}
     reval, imval = reim(val)
     if deriv1 isa Real && deriv2 isa Real
-        p = _mul_partials(partial1, partial2, deriv1, deriv2)
+        p = _mul_partials(partials(d1), partials(d2), deriv1, deriv2)
         return Complex(Dual{T}(reval, p), Dual{T}(imval, zero(p)))
     else
         rederiv1, imderiv1 = reim(deriv1)
         rederiv2, imderiv2 = reim(deriv2)
         return Complex(
-            Dual{T}(reval, _mul_partials(partial1, partial2, rederiv1, rederiv2)),
-            Dual{T}(imval, _mul_partials(partial1, partial2, imderiv1, imderiv2)),
+            Dual{T}(reval, _mul_partials(partials(d1), partials(d2), rederiv1, rederiv2)),
+            Dual{T}(imval, _mul_partials(partials(d1), partials(d2), imderiv1, imderiv2)),
         )
     end
+end
+
+# support complex functions with one or two complex arguments
+function dual_definition_retval(::Val{T}, val::Complex, deriv::Union{Real,Complex}, c::CDual) where {T}
+    pre, pim = complex_mul_partials(c, deriv)
+    x = Dual{T}(val.re, pre)
+    y = Dual{T}(val.im, pim)
+    return Complex(x, y)
+end
+function dual_definition_retval(::Val{T}, val::Complex, deriv1::Union{Real,Complex}, c1::CDual, deriv2::Union{Real,Complex}, c2::CDual) where {T}
+    pre1, pim1 = complex_mul_partials(c1, deriv1)
+    pre2, pim2 = complex_mul_partials(c2, deriv2)
+    x = Dual{T}(val.re, pre1 + pre2)
+    y = Dual{T}(val.im, pim1 + pim2)
+    return Complex(x, y)
+end
+@inline function complex_mul_partials(c::CDual, deriv)
+    pre, pim = complex_partials(c)
+    dre, dim = reim(deriv)
+    x = _mul_partials(pre, pim, dre, -dim)
+    y = _mul_partials(pre, pim, dim, dre)
+    return x, y
 end
 
 function unary_dual_definition(M, f)
@@ -246,10 +277,10 @@ function unary_dual_definition(M, f)
         deriv = $(DiffRules.diffrule(M, f, :x))
     end)
     return quote
-        @inline function $M.$f(d::$FD.Dual{T}) where T
+        @inline function $M.$f(d::$FD.CDual{T}) where T
             x = $FD.value(d)
             $work
-            return $FD.dual_definition_retval(Val{T}(), val, deriv, $FD.partials(d))
+            return $FD.dual_definition_retval(Val{T}(), val, deriv, d)
         end
     end
 end
@@ -279,17 +310,17 @@ function binary_dual_definition(M, f)
             begin
                 vx, vy = $FD.value(x), $FD.value(y)
                 $xy_work
-                return $FD.dual_definition_retval(Val{Txy}(), val, dvx, $FD.partials(x), dvy, $FD.partials(y))
+                return $FD.dual_definition_retval(Val{Txy}(), val, dvx, x, dvy, y)
             end,
             begin
                 vx = $FD.value(x)
                 $x_work
-                return $FD.dual_definition_retval(Val{Tx}(), val, dvx, $FD.partials(x))
+                return $FD.dual_definition_retval(Val{Tx}(), val, dvx, x)
             end,
             begin
                 vy = $FD.value(y)
                 $y_work
-                return $FD.dual_definition_retval(Val{Ty}(), val, dvy, $FD.partials(y))
+                return $FD.dual_definition_retval(Val{Ty}(), val, dvy, y)
             end
         )
     end
@@ -583,7 +614,7 @@ for (f, log) in ((:(Base.:^), :(Base.log)), (:(NaNMath.pow), :(NaNMath.log)))
                 if y == zero(y) || iszero(partials(x))
                     new_partials = zero(partials(x))
                 else
-                    new_partials = partials(x) * y * ($f)(v, y - 1)
+                    new_partials = partials(x) * (y * ($f)(v, y - 1))
                 end
                 return Dual{Tx}(expv, new_partials)
             end,
@@ -715,6 +746,27 @@ end
     Base.muladd(y, x, z),                             # y_body
     Dual{Tz}(muladd(x, y, value(z)), partials(z))      # z_body
 )
+
+# unsupported for complex #
+#-------------------------#
+
+for f in (:abs, :abs2)
+    @eval function Base.$f(c::Complex{<:Dual{T,V}}) where {T,V}
+        return Dual{T}($f(value(c)), float(V)(NaN) * partials(T, c.re))
+    end
+end
+
+function Base.conj(c::Complex{<:Dual{T,V}}) where {T,V}
+    dr = Dual{T}(value(c.re), float(V)(NaN) * partials(T, c.re))
+    di = Dual{T}(value(c.im), float(V)(NaN) * partials(T, c.im))
+    return complex(dr, di)
+end
+
+function Base.inv(c::Complex{<:Dual{T,V}}) where {T,V}
+    val = inv(value(c))
+    deriv = - val * val
+    return dual_definition_retval(Val(T), val, deriv, c)
+end
 
 # sin/cos #
 #--------#

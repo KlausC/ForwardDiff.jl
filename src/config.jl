@@ -128,7 +128,7 @@ function GradientConfig(f::F,
                         ::T = Tag(f, V)) where {F,R,V<:Complex{R},N,T}
     seeds = construct_seeds(Partials{N,R})
     duals = similar(x, Complex{Dual{T,R,N}})
-    return GradientConfig{T,V,N,typeof(duals)}(seeds, duals)
+    return GradientConfig{T,R,N,typeof(duals)}(seeds, duals)
 end
 
 checktag(::GradientConfig{T},f,x) where {T} = checktag(T,f,x)
@@ -171,9 +171,9 @@ function JacobianConfig(f::F,
                         x::AbstractArray{V},
                         ::Chunk{N} = Chunk(x),
                         ::T = Tag(f, V)) where {F,R,V<:Complex{R},N,T}
-    seeds = construct_seeds(Partials{N,V})
+    seeds = construct_seeds(Partials{N,R})
     duals = similar(x, Complex{Dual{T,R,N}})
-    return JacobianConfig{T,V,N,typeof(duals)}(seeds, duals)
+    return JacobianConfig{T,R,N,typeof(duals)}(seeds, duals)
 end
 
 """
@@ -211,9 +211,9 @@ Base.eltype(::Type{JacobianConfig{T,V,N,D}}) where {T,V,N,D} = Dual{T,V,N}
 # HessianConfig #
 #################
 
-struct HessianConfig{T,V,N,DG,DJ} <: AbstractConfig{N}
+struct HessianConfig{T,V,N,DG,DJ,VD} <: AbstractConfig{N}
     jacobian_config::JacobianConfig{T,V,N,DJ}
-    gradient_config::GradientConfig{T,Dual{T,V,N},N,DG}
+    gradient_config::GradientConfig{T,VD,N,DG}
 end
 
 """
@@ -269,5 +269,9 @@ function HessianConfig(f::F,
 end
 
 checktag(::HessianConfig{T},f,x) where {T} = checktag(T,f,x)
-Base.eltype(::Type{HessianConfig{T,V,N,DG,DJ}}) where {T,V,N,DG,DJ} =
-    Dual{T,Dual{T,V,N},N}
+function Base.eltype(::Type{HessianConfig{T,V,N,DG,DJ,VD}}) where {T,V<:Real,N,DG,DJ,VD}
+    return Dual{T,VD,N}
+end
+function Base.eltype(::Type{HessianConfig{T,V,N,DG,DJ,VD}}) where {T,V<:Complex,N,DG,DJ,VD}
+    return Complex{Dual{T,real(VD),N}}
+end
