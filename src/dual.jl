@@ -72,7 +72,7 @@ end
     return complex(Dual{T}(real(value), partials), Dual{T}(imag(value), zero(partials)))
 end
 
-@inline Dual{T}(value, partials::Tuple) where {T} = Dual{T}(value, _to_partials(partials))
+@inline Dual{T}(value, partials::Tuple) where {T} = Dual{T}(value, _to_partials(value, partials))
 @inline Dual{T}(value) where {T} = Dual{T}(value, ())
 @inline Dual{T}(x::Dual{T}) where {T} = Dual{T}(x, ())
 @inline Dual{T}(value, partial1, partials...) where {T} = Dual{T}(value, tuple(partial1, partials...))
