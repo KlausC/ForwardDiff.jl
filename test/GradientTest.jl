@@ -24,7 +24,7 @@ g = [-9.4, 15.6, 52.0]
 @testset "Rosenbrock, chunk size = $c and tag = $(repr(tag))" for c in (1, 2, 3), tag in (nothing, Tag(f, eltype(x)))
     cfg = ForwardDiff.GradientConfig(f, x, ForwardDiff.Chunk{c}(), tag)
 
-    @test eltype(cfg) == Dual{typeof(tag), eltype(x), c}
+    @test eltype(cfg) == Dual{typeof(tag), eltype(x), c, eltype(x)}
 
     @test isapprox(g, ForwardDiff.gradient(f, x, cfg))
     @test isapprox(g, ForwardDiff.gradient(f, x))

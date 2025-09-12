@@ -1,4 +1,5 @@
 struct Partials{N,V} <: AbstractVector{V}
+
     values::NTuple{N,V}
 end
 

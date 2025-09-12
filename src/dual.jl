@@ -11,12 +11,16 @@ Dual. By default, only `<:Real` types are allowed.
 can_dual(::Type{<:Real}) = true
 can_dual(::Type) = false
 
-struct Dual{T,V,N} <: Real
+struct Dual{T,V,N,W} <: Real
     value::V
-    partials::Partials{N,V}
-    function Dual{T, V, N}(value::V, partials::Partials{N, V}) where {T, V, N}
+    partials::Partials{N,W}
+    function Dual{T, V, N, V}(value::V, partials::Partials{N, V}) where {T, V, N}
         can_dual(V) || throw_cannot_dual(V)
-        new{T, V, N}(value, partials)
+        new{T, V, N, V}(value, partials)
+    end
+    function Dual{T, V, N, W}(value::V, partials::Partials{N, W}) where {T, V, N, W<:Complex{V}}
+        can_dual(V) || throw_cannot_dual(V)
+        new{T, V, N, W}(value, partials)
     end
 end
 
@@ -57,11 +61,13 @@ tag can be extracted, so it should be used in the _innermost_ function.
 # Constructors #
 ################
 
-@inline Dual{T}(value::V, partials::Partials{N,V}) where {T,N,V} = Dual{T,V,N}(value, partials)
+@inline Dual{T}(value::V, partials::Partials{N,V}) where {T,V,N} = Dual{T,V,N,V}(value, partials)
+@inline Dual{T}(value::V, partials::Partials{N,W}) where {T,V,N,W<:Complex{V}} = Dual{T,V,N,V}(value, partials)
 
 @inline function Dual{T}(value::A, partials::Partials{N,B}) where {T,N,A,B}
     C = promote_type(A, B)
-    return Dual{T}(convert(C, value), convert(Partials{N,C}, partials))
+    D = promote_type(real(A), real(B))
+    return Dual{T}(convert(D, value), convert(Partials{N,C}, partials))
 end
 
 @inline Dual{T}(value, partials::Tuple) where {T} = Dual{T}(value, Partials(partials))
@@ -73,14 +79,14 @@ end
 @inline Dual(args...) = Dual{Nothing}(args...)
 
 # we define these special cases so that the "constructor <--> convert" pun holds for `Dual`
-@inline Dual{T,V,N}(x::Dual{T,V,N}) where {T,V,N} = x
-@inline Dual{T,V,N}(x) where {T,V,N} = convert(Dual{T,V,N}, x)
-@inline Dual{T,V,N}(x::Number) where {T,V,N} = convert(Dual{T,V,N}, x)
+@inline Dual{T,V,N,W}(x::Dual{T,V,N,W}) where {T,V,N,W} = x
+@inline Dual{T,V,N,W}(x) where {T,V,N,W} = convert(Dual{T,V,N,W}, x)
+@inline Dual{T,V,N,W}(x::Number) where {T,V,N,W} = convert(Dual{T,V,N,W}, x)
 @inline Dual{T,V}(x) where {T,V} = convert(Dual{T,V}, x)
 
 # Fix method ambiguity issue by adapting the definition in Base to `Dual`s
-Dual{T,V,N}(x::Base.TwicePrecision) where {T,V,N} =
-    (Dual{T,V,N}(x.hi) + Dual{T,V,N}(x.lo))::Dual{T,V,N}
+Dual{T,V,N,W}(x::Base.TwicePrecision) where {T,V,N,W} =
+    (Dual{T,V,N,W}(x.hi) + Dual{T,V,N,W}(x.lo))::Dual{T,V,N,W}
 
 ##############################
 # Utility/Accessor Functions #
@@ -118,20 +124,25 @@ end
 
 
 @inline npartials(::Dual{T,V,N}) where {T,V,N} = N
-@inline npartials(::Type{Dual{T,V,N}}) where {T,V,N} = N
+@inline npartials(::Type{<:Dual{T,V,N}}) where {T,V,N} = N
 
 @inline order(::Type{V}) where {V} = 0
-@inline order(::Type{Dual{T,V,N}}) where {T,V,N} = 1 + order(V)
+@inline order(::Type{<:Dual{T,V}}) where {T,V} = 1 + order(V)
 
 @inline valtype(::V) where {V} = V
 @inline valtype(::Type{V}) where {V} = V
-@inline valtype(::Dual{T,V,N}) where {T,V,N} = V
-@inline valtype(::Type{Dual{T,V,N}}) where {T,V,N} = V
+@inline valtype(::Dual{T,V}) where {T,V} = V
+@inline valtype(::Type{<:Dual{T,V,N}}) where {T,V,N} = V
+
+@inline waltype(::V) where {V} = V
+@inline waltype(::Type{V}) where {V} = V
+@inline waltype(::Dual{T,V,N,W}) where {T,V,N,W} = W
+@inline waltype(::Type{<:Dual{T,V,N,W}}) where {T,V,N,W} = W
 
 @inline tagtype(::V) where {V} = Nothing
 @inline tagtype(::Type{V}) where {V} = Nothing
-@inline tagtype(::Dual{T,V,N}) where {T,V,N} = T
-@inline tagtype(::Type{Dual{T,V,N}}) where {T,V,N} = T
+@inline tagtype(::Dual{T}) where {T} = T
+@inline tagtype(::Type{<:Dual{T}}) where {T} = T
 
 ####################################
 # N-ary Operation Definition Tools #
@@ -305,11 +316,11 @@ function Base.precision(::Type{D}; base::Integer=2) where {D<:Dual}
     precision(valtype(D); base=base)
 end
 
-function Base.nextfloat(d::ForwardDiff.Dual{T,V,N}) where {T,V,N}
+function Base.nextfloat(d::ForwardDiff.Dual{T}) where {T}
     ForwardDiff.Dual{T}(nextfloat(d.value), d.partials)
 end
 
-function Base.prevfloat(d::ForwardDiff.Dual{T,V,N}) where {T,V,N}
+function Base.prevfloat(d::ForwardDiff.Dual{T}) where {T}
     ForwardDiff.Dual{T}(prevfloat(d.value), d.partials)
 end
 
@@ -337,10 +348,10 @@ Base.div(x::Dual, y::Dual, r::RoundingMode) = div(value(x), value(y), r)
 
 Base.hash(d::Dual, hsh::UInt) = hash(value(d), hsh)
 
-function Base.read(io::IO, ::Type{Dual{T,V,N}}) where {T,V,N}
+function Base.read(io::IO, ::Type{Dual{T,V,N,W}}) where {T,V,N,W}
     value = read(io, V)
-    partials = read(io, Partials{N,V})
-    return Dual{T,V,N}(value, partials)
+    partials = read(io, Partials{N,W})
+    return Dual{T,V,N,W}(value, partials)
 end
 
 function Base.write(io::IO, d::Dual)
@@ -349,10 +360,10 @@ function Base.write(io::IO, d::Dual)
 end
 
 @inline Base.zero(d::Dual) = zero(typeof(d))
-@inline Base.zero(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(zero(V), zero(Partials{N,V}))
+@inline Base.zero(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(zero(V), zero(Partials{N,W}))
 
 @inline Base.one(d::Dual) = one(typeof(d))
-@inline Base.one(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(one(V), zero(Partials{N,V}))
+@inline Base.one(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(one(V), zero(Partials{N,W}))
 
 @inline function Base.Int(d::Dual)
     all(iszero, partials(d)) || throw(InexactError(:Int, Int, d))
@@ -364,12 +375,12 @@ end
 end
 
 @inline Random.rand(rng::AbstractRNG, d::Dual) = rand(rng, value(d))
-@inline Random.rand(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(rand(V), zero(Partials{N,V}))
-@inline Random.rand(rng::AbstractRNG, ::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(rand(rng, V), zero(Partials{N,V}))
-@inline Random.randn(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(randn(V), zero(Partials{N,V}))
-@inline Random.randn(rng::AbstractRNG, ::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(randn(rng, V), zero(Partials{N,V}))
-@inline Random.randexp(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(randexp(V), zero(Partials{N,V}))
-@inline Random.randexp(rng::AbstractRNG, ::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T}(randexp(rng, V), zero(Partials{N,V}))
+@inline Random.rand(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(rand(V), zero(Partials{N,W}))
+@inline Random.rand(rng::AbstractRNG, ::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(rand(rng, V), zero(Partials{N,W}))
+@inline Random.randn(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(randn(V), zero(Partials{N,V}))
+@inline Random.randn(rng::AbstractRNG, ::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(randn(rng, V), zero(Partials{N,W}))
+@inline Random.randexp(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(randexp(V), zero(Partials{N,W}))
+@inline Random.randexp(rng::AbstractRNG, ::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T}(randexp(rng, V), zero(Partials{N,W}))
 
 # Predicates #
 #------------#
@@ -427,42 +438,42 @@ end
 # Promotion/Conversion #
 ########################
 
-function Base.promote_rule(::Type{Dual{T1,V1,N1}},
-                                      ::Type{Dual{T2,V2,N2}}) where {T1,V1,N1,T2,V2,N2}
+function Base.promote_rule(::Type{Dual{T1,V1,N1,W1}},
+                            ::Type{Dual{T2,V2,N2,W2}}) where {T1,V1,N1,W1,T2,V2,N2,W2}
     # V1 and V2 might themselves be Dual types
     if T2 ≺ T1
-        Dual{T1,promote_type(V1,Dual{T2,V2,N2}),N1}
+        Dual{T1,promote_type(V1,Dual{T2,V2,N2,W2}),N1,W1}
     else
-        Dual{T2,promote_type(V2,Dual{T1,V1,N1}),N2}
+        Dual{T2,promote_type(V2,Dual{T1,V1,N1,W1}),N2,W2}
     end
 end
 
-function Base.promote_rule(::Type{Dual{T,A,N}},
-                           ::Type{Dual{T,B,N}}) where {T,A,B,N}
-    return Dual{T,promote_type(A, B),N}
+function Base.promote_rule(::Type{Dual{T,A,N,V}},
+                           ::Type{Dual{T,B,N,W}}) where {T,A,B,N,V,W}
+    return Dual{T,promote_type(A, B),N,promote_type(V, W)}
 end
 
 for R in (AbstractIrrational, Real, BigFloat, Bool)
     if isconcretetype(R) # issue #322
         @eval begin
-            Base.promote_rule(::Type{$R}, ::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T,promote_type($R, V),N}
-            Base.promote_rule(::Type{Dual{T,V,N}}, ::Type{$R}) where {T,V,N} = Dual{T,promote_type(V, $R),N}
+            Base.promote_rule(::Type{$R}, ::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T,promote_type($R, V),N,promote_type($R, W)}
+            Base.promote_rule(::Type{Dual{T,V,N,W}}, ::Type{$R}) where {T,V,N,W} = Dual{T,promote_type(V, $R),N,promote_type($R, W)}
         end
     else
         @eval begin
-            Base.promote_rule(::Type{R}, ::Type{Dual{T,V,N}}) where {R<:$R,T,V,N} = Dual{T,promote_type(R, V),N}
-            Base.promote_rule(::Type{Dual{T,V,N}}, ::Type{R}) where {T,V,N,R<:$R} = Dual{T,promote_type(V, R),N}
+            Base.promote_rule(::Type{R}, ::Type{Dual{T,V,N,W}}) where {R<:$R,T,V,N,W} = Dual{T,promote_type(R, V),N,promote_type(R, W)}
+            Base.promote_rule(::Type{Dual{T,V,N,W}}, ::Type{R}) where {T,V,N,W,R<:$R} = Dual{T,promote_type(R, V),N,promote_type(R, W)}
         end
     end
 end
 
-@inline Base.convert(::Type{Dual{T,V,N}}, d::Dual{T}) where {T,V,N} = Dual{T}(V(value(d)), convert(Partials{N,V}, partials(d)))
-@inline Base.convert(::Type{Dual{T,Dual{T,V,M},N}}, d::Dual{T,V,M}) where {T,V,N,M} = Dual{T}(d, Partials{N,Dual{T,V,M}}(zero_tuple(NTuple{N,Dual{T,V,M}})))
-@inline Base.convert(::Type{Dual{T,V,N}}, x) where {T,V,N} = Dual{T}(V(x), zero(Partials{N,V}))
-@inline Base.convert(::Type{Dual{T,V,N}}, x::Number) where {T,V,N} = Dual{T}(V(x), zero(Partials{N,V}))
+@inline Base.convert(::Type{Dual{T,V,N,W}}, d::Dual{T,V1,M,W1}) where {T,V,N,W,V1,M,W1} = Dual{T}(V(value(d)), convert(Partials{N,W}, partials(d)))
+@inline Base.convert(::Type{Dual{T,D,N,W}}, d::D) where {T,V,M,W,D<:Dual{T,V,M,W},N} =  Dual{T}(d, Partials{N,D}(zero_tuple(NTuple{N,D})))
+@inline Base.convert(::Type{Dual{T,V,N,W}}, x) where {T,V,N,W} = Dual{T}(V(x), zero(Partials{N,W}))
+@inline Base.convert(::Type{Dual{T,V,N,W}}, x::Number) where {T,V,N,W} = Dual{T}(V(x), zero(Partials{N,W}))
 Base.convert(::Type{D}, d::D) where {D<:Dual} = d
 
-Base.float(::Type{Dual{T,V,N}}) where {T,V,N} = Dual{T,float(V),N}
+Base.float(::Type{Dual{T,V,N,W}}) where {T,V,N,W} = Dual{T,float(V),N,float(W)}
 Base.float(d::Dual) = convert(float(typeof(d)), d)
 
 ###################################
@@ -811,7 +822,7 @@ end
 # Pretty Printing #
 ###################
 
-function Base.show(io::IO, d::Dual{T,V,N}) where {T,V,N}
+function Base.show(io::IO, d::Dual{T,V,N,W}) where {T,V,N,W}
     print(io, "Dual{$(repr(T))}(", value(d))
     for i in 1:N
         print(io, ",", partials(d, i))
@@ -820,8 +831,8 @@ function Base.show(io::IO, d::Dual{T,V,N}) where {T,V,N}
 end
 
 for op in (:(Base.typemin), :(Base.typemax), :(Base.floatmin), :(Base.floatmax))
-    @eval function $op(::Type{ForwardDiff.Dual{T,V,N}}) where {T,V,N}
-        ForwardDiff.Dual{T,V,N}($op(V))
+    @eval function $op(::Type{ForwardDiff.Dual{T,V,N,W}}) where {T,V,N,W}
+        ForwardDiff.Dual{T,V,N,W}($op(V))
     end
 end
 

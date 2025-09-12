@@ -4,7 +4,7 @@ using ForwardDiff
 
 include(joinpath(dirname(@__FILE__), "utils.jl"))
 
-convert_test_574() = convert(ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,Float64,8},4},2}, 1.3)
+convert_test_574() = convert(ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,Float64,8,Float64},4},2,Float64}, 1.3)
 
 @testset "Test seed! allocations" begin
     x = rand(1000)

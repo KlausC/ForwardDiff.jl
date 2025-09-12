@@ -82,8 +82,11 @@ This constructor does not store/modify `y` or `x`.
 function DerivativeConfig(f::F,
                           y::AbstractArray{Y},
                           x::X,
-                          tag::T = Tag(f, X)) where {F,X<:Real,Y<:Real,T}
-    duals = similar(y, Dual{T,Y,1})
+                          tag::T = Tag(f, X),
+                          ::Type{C} = Real) where {F,X<:Real,Y<:Real,T,C}
+
+    W = C <: Complex ? Complex{Y} : Y
+    duals = similar(y, Dual{T,Y,1,W})
     return DerivativeConfig{T,typeof(duals)}(duals)
 end
 
@@ -94,8 +97,8 @@ Base.eltype(::Type{DerivativeConfig{T,D}}) where {T,D} = eltype(D)
 # GradientConfig #
 ##################
 
-struct GradientConfig{T,V,N,D} <: AbstractConfig{N}
-    seeds::NTuple{N,Partials{N,V}}
+struct GradientConfig{T,V,N,D,W} <: AbstractConfig{N}
+    seeds::NTuple{N,Partials{N,W}}
     duals::D
 end
 
@@ -117,21 +120,24 @@ This constructor does not store/modify `x`.
 function GradientConfig(f::F,
                         x::AbstractArray{V},
                         ::Chunk{N} = Chunk(x),
-                        ::T = Tag(f, V)) where {F,V,N,T}
-    seeds = construct_seeds(Partials{N,V})
-    duals = similar(x, Dual{T,V,N})
-    return GradientConfig{T,V,N,typeof(duals)}(seeds, duals)
+                        ::T = Tag(f, V),
+                        ::Type{C} = Real) where {F,V,N,T,C}
+
+    W = C <: Complex ? Complex{V} : V
+    seeds = construct_seeds(Partials{N,W})
+    duals = similar(x, Dual{T,V,N,W})
+    return GradientConfig{T,V,N,typeof(duals),W}(seeds, duals)
 end
 
 checktag(::GradientConfig{T},f,x) where {T} = checktag(T,f,x)
-Base.eltype(::Type{GradientConfig{T,V,N,D}}) where {T,V,N,D} = Dual{T,V,N}
+Base.eltype(::Type{GradientConfig{T,V,N,D,W}}) where {T,V,N,D,W} = Dual{T,V,N,W}
 
 ##################
 # JacobianConfig #
 ##################
 
-struct JacobianConfig{T,V,N,D} <: AbstractConfig{N}
-    seeds::NTuple{N,Partials{N,V}}
+struct JacobianConfig{T,V,N,D,W} <: AbstractConfig{N}
+    seeds::NTuple{N,Partials{N,W}}
     duals::D
 end
 
@@ -154,10 +160,13 @@ This constructor does not store/modify `x`.
 function JacobianConfig(f::F,
                         x::AbstractArray{V},
                         ::Chunk{N} = Chunk(x),
-                        ::T = Tag(f, V)) where {F,V,N,T}
-    seeds = construct_seeds(Partials{N,V})
-    duals = similar(x, Dual{T,V,N})
-    return JacobianConfig{T,V,N,typeof(duals)}(seeds, duals)
+                        ::T = Tag(f, V),
+                        ::Type{C} = Real) where {F,V,N,T,C}
+
+    W = C <: Complex ? Complex{V} : V
+    seeds = construct_seeds(Partials{N,W})
+    duals = similar(x, Dual{T,V,N,W})
+    return JacobianConfig{T,V,N,typeof(duals),W}(seeds, duals)
 end
 
 """
@@ -180,24 +189,27 @@ function JacobianConfig(f::F,
                         y::AbstractArray{Y},
                         x::AbstractArray{X},
                         ::Chunk{N} = Chunk(x),
-                        ::T = Tag(f, X)) where {F,Y,X,N,T}
-    seeds = construct_seeds(Partials{N,X})
-    yduals = similar(y, Dual{T,Y,N})
-    xduals = similar(x, Dual{T,X,N})
+                        ::T = Tag(f, X),
+                        ::Type{C} = Real) where {F,Y,X,N,T,C}
+
+    W = C <: Complex ? Complex{X} : X
+    seeds = construct_seeds(Partials{N,WX})
+    yduals = similar(y, Dual{T,Y,N,W})
+    xduals = similar(x, Dual{T,X,N,W})
     duals = (yduals, xduals)
-    return JacobianConfig{T,X,N,typeof(duals)}(seeds, duals)
+    return JacobianConfig{T,X,N,typeof(duals),W}(seeds, duals)
 end
 
 checktag(::JacobianConfig{T},f,x) where {T} = checktag(T,f,x)
-Base.eltype(::Type{JacobianConfig{T,V,N,D}}) where {T,V,N,D} = Dual{T,V,N}
+Base.eltype(::Type{JacobianConfig{T,V,N,D,W}}) where {T,V,N,D,W} = Dual{T,V,N,W}
 
 #################
 # HessianConfig #
 #################
 
-struct HessianConfig{T,V,N,DG,DJ} <: AbstractConfig{N}
-    jacobian_config::JacobianConfig{T,V,N,DJ}
-    gradient_config::GradientConfig{T,Dual{T,V,N},N,DG}
+struct HessianConfig{T,V,N,DG,DJ,W} <: AbstractConfig{N}
+    jacobian_config::JacobianConfig{T,V,N,DJ,W}
+    gradient_config::GradientConfig{T,Dual{T,V,N,W},N,DG,W}
 end
 
 """
@@ -221,9 +233,12 @@ This constructor does not store/modify `x`.
 function HessianConfig(f::F,
                        x::AbstractArray{V},
                        chunk::Chunk = Chunk(x),
-                       tag = Tag(f, V)) where {F,V}
-    jacobian_config = JacobianConfig(f, x, chunk, tag)
-    gradient_config = GradientConfig(f, jacobian_config.duals, chunk, tag)
+                       tag = Tag(f, V),
+                       ::Type{C} = Real) where {F,V,C}
+
+    W = C <: Complex ? Complex{V} : V
+    jacobian_config = JacobianConfig(f, x, chunk, tag, W)
+    gradient_config = GradientConfig(f, jacobian_config.duals, chunk, tag, W)
     return HessianConfig(jacobian_config, gradient_config)
 end
 
@@ -246,12 +261,15 @@ function HessianConfig(f::F,
                        result::DiffResult,
                        x::AbstractArray{V},
                        chunk::Chunk = Chunk(x),
-                       tag = Tag(f, V)) where {F,V}
-    jacobian_config = JacobianConfig((f,gradient), DiffResults.gradient(result), x, chunk, tag)
-    gradient_config = GradientConfig(f, jacobian_config.duals[2], chunk, tag)
+                       tag = Tag(f, V),
+                       ::Type{C} = Real) where {F,V,C}
+
+    W = C <: Complex ? Complex{V} : V
+    jacobian_config = JacobianConfig((f,gradient), DiffResults.gradient(result), x, chunk, tag, W)
+    gradient_config = GradientConfig(f, jacobian_config.duals[2], chunk, tag, W)
     return HessianConfig(jacobian_config, gradient_config)
 end
 
 checktag(::HessianConfig{T},f,x) where {T} = checktag(T,f,x)
-Base.eltype(::Type{HessianConfig{T,V,N,DG,DJ}}) where {T,V,N,DG,DJ} =
-    Dual{T,Dual{T,V,N},N}
+Base.eltype(::Type{HessianConfig{T,V,N,DG,DJ,W}}) where {T,V,N,DG,DJ,W} =
+    Dual{T,Dual{T,V,N,W},N,W}

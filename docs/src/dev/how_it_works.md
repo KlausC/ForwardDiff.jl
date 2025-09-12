@@ -15,12 +15,12 @@ struct Partials{N,V} <: AbstractVector{V}
 end
 ```
 
-The `Partials` type is used to implement the `Dual` type:
+The `Partials` type is used to implement the `Dual` type, where `W` is either `V` or `Complex{V}`:
 
 ```julia
-struct Dual{T,V<:Real,N} <: Real
+struct Dual{T,V<:Real,N,W} <: Real
     value::V
-    partials::Partials{N,V}
+    partials::Partials{N,V,W}
 end
 ```
 
@@ -56,9 +56,9 @@ learn about [hyper-dual numbers](https://arc.aiaa.org/doi/abs/10.2514/6.2011-886
 which extend dual numbers to higher orders by introducing extra ``\epsilon`` terms that can
 cross-multiply. ForwardDiff's `Dual` number implementation naturally supports hyper-dual
 numbers without additional code by allowing instances of the `Dual` type to nest within each
-other. For example, a second-order hyper-dual number has the type `Dual{T,Dual{S,V,M},N}`,
-and can be formed as follows: `Dual(Dual(x, one(eltype(x))), one(eltype(x)))`. A third-order
-hyper-dual number has the type `Dual{T,Dual{S,Dual{R,V,K},M},N}`, and so on.
+other. For example, a second-order hyper-dual number has the type `Dual{T,Dual{S,V,M},N,W}`,
+and can be formed as follows: `Dual{T}(Dual{T}(x, one(eltype(x))), one(eltype(x)))`. A third-order
+hyper-dual number has the type `Dual{T,Dual{S,Dual{R,V,K,W},M},N,WR},WS},WT}`, and so on.
 
 ## ForwardDiff's API
 

@@ -70,16 +70,16 @@ function structural_eachindex(x::Diagonal, y::AbstractArray)
     return diagind(x)
 end
 
-function seed!(duals::AbstractArray{Dual{T,V,N}}, x,
-               seed::Partials{N,V} = zero(Partials{N,V})) where {T,V,N}
+function seed!(duals::AbstractArray{Dual{T,V,N,W}}, x,
+               seed::Partials{N,W} = zero(Partials{N,V})) where {T,V,N,W}
     if isbitstype(V)
         for idx in structural_eachindex(duals, x)
-            duals[idx] = Dual{T,V,N}(x[idx], seed)
+            duals[idx] = Dual{T,V,N,W}(x[idx], seed)
         end
     else
         for idx in structural_eachindex(duals, x)
             if isassigned(x, idx)
-                duals[idx] = Dual{T,V,N}(x[idx], seed)
+                duals[idx] = Dual{T,V,N,W}(x[idx], seed)
             else
                 Base._unsetindex!(duals, idx)
             end
@@ -88,16 +88,16 @@ function seed!(duals::AbstractArray{Dual{T,V,N}}, x,
     return duals
 end
 
-function seed!(duals::AbstractArray{Dual{T,V,N}}, x,
-               seeds::NTuple{N,Partials{N,V}}) where {T,V,N}
+function seed!(duals::AbstractArray{Dual{T,V,N,W}}, x,
+               seeds::NTuple{N,Partials{N,W}}) where {T,V,N,W}
     if isbitstype(V)
         for (i, idx) in zip(1:N, structural_eachindex(duals, x))
-            duals[idx] = Dual{T,V,N}(x[idx], seeds[i])
+            duals[idx] = Dual{T,V,N,W}(x[idx], seeds[i])
         end
     else
         for (i, idx) in zip(1:N, structural_eachindex(duals, x))
             if isassigned(x, idx)
-                duals[idx] = Dual{T,V,N}(x[idx], seeds[i])
+                duals[idx] = Dual{T,V,N,W}(x[idx], seeds[i])
             else
                 Base._unsetindex!(duals, idx)
             end
@@ -106,18 +106,18 @@ function seed!(duals::AbstractArray{Dual{T,V,N}}, x,
     return duals
 end
 
-function seed!(duals::AbstractArray{Dual{T,V,N}}, x, index,
-               seed::Partials{N,V} = zero(Partials{N,V})) where {T,V,N}
+function seed!(duals::AbstractArray{Dual{T,V,N,W}}, x, index,
+               seed::Partials{N,W} = zero(Partials{N,V})) where {T,V,N,W}
     offset = index - 1
     idxs = Iterators.drop(structural_eachindex(duals, x), offset)
     if isbitstype(V)
         for idx in idxs
-            duals[idx] = Dual{T,V,N}(x[idx], seed)
+            duals[idx] = Dual{T,V,N,W}(x[idx], seed)
         end
     else
         for idx in idxs
             if isassigned(x, idx)
-                duals[idx] = Dual{T,V,N}(x[idx], seed)
+                duals[idx] = Dual{T,V,N,W}(x[idx], seed)
             else
                 Base._unsetindex!(duals, idx)
             end
@@ -126,18 +126,18 @@ function seed!(duals::AbstractArray{Dual{T,V,N}}, x, index,
     return duals
 end
 
-function seed!(duals::AbstractArray{Dual{T,V,N}}, x, index,
-               seeds::NTuple{N,Partials{N,V}}, chunksize = N) where {T,V,N}
+function seed!(duals::AbstractArray{Dual{T,V,N,W}}, x, index,
+               seeds::NTuple{N,Partials{N,W}}, chunksize = N) where {T,V,N,W}
     offset = index - 1
     idxs = Iterators.drop(structural_eachindex(duals, x), offset)
     if isbitstype(V)
         for (i, idx) in zip(1:chunksize, idxs)
-            duals[idx] = Dual{T,V,N}(x[idx], seeds[i])
+            duals[idx] = Dual{T,V,N,W}(x[idx], seeds[i])
         end
     else
         for (i, idx) in zip(1:chunksize, idxs)
             if isassigned(x, idx)
-                duals[idx] = Dual{T,V,N}(x[idx], seeds[i])
+                duals[idx] = Dual{T,V,N,W}(x[idx], seeds[i])
             else
                 Base._unsetindex!(duals, idx)
             end

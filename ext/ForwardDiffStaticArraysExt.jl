@@ -13,7 +13,7 @@ using DiffResults: DiffResult, ImmutableDiffResult, MutableDiffResult
 @generated function dualize(::Type{T}, x::StaticArray) where T
     N = length(x)
     dx = Expr(:tuple, [:(Dual{T}(x[$i], chunk, Val{$i}())) for i in 1:N]...)
-    V = StaticArrays.similar_type(x, Dual{T,eltype(x),N})
+    V = StaticArrays.similar_type(x, Dual{T,eltype(x),N,eltype(x)})
     return quote
         chunk = Chunk{$N}()
         $(Expr(:meta, :inline))
@@ -24,10 +24,10 @@ end
 @inline static_dual_eval(::Type{T}, f::F, x::StaticArray) where {T,F} = f(dualize(T, x))
 
 # To fix method ambiguity issues:
-function LinearAlgebra.eigvals(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N}
+function LinearAlgebra.eigvals(A::Symmetric{<:Dual{Tg,T,N,W}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N,W}
     return ForwardDiff._eigvals(A)
 end
-function LinearAlgebra.eigen(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N}
+function LinearAlgebra.eigen(A::Symmetric{<:Dual{Tg,T,N,W}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N,W}
     return ForwardDiff._eigen(A)
 end
 

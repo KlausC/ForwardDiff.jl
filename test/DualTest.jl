@@ -30,17 +30,17 @@ ForwardDiff.:≺(::Int, ::Type{TestTag}) = false
 ForwardDiff.:≺(::Type{TestTag}, ::Type{OuterTestTag}) = true
 ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
 
-@testset "Dual{Z,$V,$N} and Dual{Z,Dual{Z,$V,$M},$N}" for N in (0,3), M in (0,4), V in (Int, Float32)
+@testset "Dual{Z,$V,$N,$W} and Dual{Z,Dual{Z,$V,$M,$W},$N,$W}" for N in (0,3), M in (0,4), V in (Int, Float32), W in (V,)
 
-    PARTIALS = Partials{N,V}(ntuple(n -> intrand(V), N))
+    PARTIALS = Partials{N,W}(ntuple(n -> intrand(W), N))
     PRIMAL = intrand(V)
     FDNUM = Dual{TestTag}(PRIMAL, PARTIALS)
 
-    PARTIALS2 = Partials{N,V}(ntuple(n -> intrand(V), N))
+    PARTIALS2 = Partials{N,W}(ntuple(n -> intrand(W), N))
     PRIMAL2 = intrand(V)
     FDNUM2 = Dual{TestTag}(PRIMAL2, PARTIALS2)
 
-    PARTIALS3 = Partials{N,V}(ntuple(n -> intrand(V), N))
+    PARTIALS3 = Partials{N,W}(ntuple(n -> intrand(W), N))
     PRIMAL3 = intrand(V)
     FDNUM3 = Dual{TestTag}(PRIMAL3, PARTIALS3)
 
@@ -51,12 +51,12 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
         @info "testing with non-unique partials" PARTIALS PARTIALS2 PARTIALS3
     end
 
-    M_PARTIALS = Partials{M,V}(ntuple(m -> intrand(V), M))
-    NESTED_PARTIALS = convert(Partials{N,Dual{TestTag,V,M}}, PARTIALS)
+    M_PARTIALS = Partials{M,W}(ntuple(m -> intrand(W), M))
+    NESTED_PARTIALS = convert(Partials{N,Dual{TestTag,V,M,V}}, PARTIALS)
     NESTED_FDNUM = Dual{TestTag}(Dual{TestTag}(PRIMAL, M_PARTIALS), NESTED_PARTIALS)
 
-    M_PARTIALS2 = Partials{M,V}(ntuple(m -> intrand(V), M))
-    NESTED_PARTIALS2 = convert(Partials{N,Dual{TestTag,V,M}}, PARTIALS2)
+    M_PARTIALS2 = Partials{M,W}(ntuple(m -> intrand(W), M))
+    NESTED_PARTIALS2 = convert(Partials{N,Dual{TestTag,V,M,V}}, PARTIALS2)
     NESTED_FDNUM2 = Dual{TestTag}(Dual{TestTag}(PRIMAL2, M_PARTIALS2), NESTED_PARTIALS2)
 
     ################
@@ -67,10 +67,10 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     @test Dual(PRIMAL, PARTIALS...) === Dual{Nothing}(PRIMAL, PARTIALS...)
     @test Dual(PRIMAL) === Dual{Nothing}(PRIMAL)
 
-    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS)) === Dual{TestTag,widen(V),N}
-    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS.values)) === Dual{TestTag,widen(V),N}
-    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS...)) === Dual{TestTag,widen(V),N}
-    @test typeof(NESTED_FDNUM) == Dual{TestTag,Dual{TestTag,V,M},N}
+    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS)) === Dual{TestTag,widen(V),N,widen(V)}
+    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS.values)) === Dual{TestTag,widen(V),N,widen(V)}
+    @test typeof(Dual{TestTag}(widen(V)(PRIMAL), PARTIALS...)) === Dual{TestTag,widen(V),N,widen(V)}
+    @test typeof(NESTED_FDNUM) == Dual{TestTag,Dual{TestTag,V,M,V},N,Dual{TestTag,V,M,V}}
 
     #############
     # Accessors #
@@ -98,8 +98,8 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
 
     @test ForwardDiff.valtype(FDNUM) == V
     @test ForwardDiff.valtype(typeof(FDNUM)) == V
-    @test ForwardDiff.valtype(NESTED_FDNUM) == Dual{TestTag,V,M}
-    @test ForwardDiff.valtype(typeof(NESTED_FDNUM)) == Dual{TestTag,V,M}
+    @test ForwardDiff.valtype(NESTED_FDNUM) == Dual{TestTag,V,M,V}
+    @test ForwardDiff.valtype(typeof(NESTED_FDNUM)) == Dual{TestTag,V,M,V}
 
     #####################
     # Generic Functions #
@@ -118,7 +118,7 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
         @test precision(typeof(FDNUM)) === precision(V)
         @test precision(NESTED_FDNUM) === precision(PRIMAL)
         @test precision(typeof(NESTED_FDNUM)) === precision(V)
-        
+
         @test precision(FDNUM; base=10) === precision(PRIMAL; base=10)
         @test precision(typeof(FDNUM); base=10) === precision(V; base=10)
         @test precision(NESTED_FDNUM; base=10) === precision(PRIMAL; base=10)
@@ -206,25 +206,25 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     @test zero(FDNUM) === Dual{TestTag}(zero(PRIMAL), zero(PARTIALS))
     @test zero(typeof(FDNUM)) === Dual{TestTag}(zero(V), zero(Partials{N,V}))
     @test zero(NESTED_FDNUM) === Dual{TestTag}(Dual{TestTag}(zero(PRIMAL), zero(M_PARTIALS)), zero(NESTED_PARTIALS))
-    @test zero(typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(zero(V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M}}))
+    @test zero(typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(zero(V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M,V}}))
 
     @test one(FDNUM) === Dual{TestTag}(one(PRIMAL), zero(PARTIALS))
     @test one(typeof(FDNUM)) === Dual{TestTag}(one(V), zero(Partials{N,V}))
     @test one(NESTED_FDNUM) === Dual{TestTag}(Dual{TestTag}(one(PRIMAL), zero(M_PARTIALS)), zero(NESTED_PARTIALS))
-    @test one(typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(one(V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M}}))
+    @test one(typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(one(V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M,V}}))
 
     if V <: Integer
         @test rand(samerng(), FDNUM) == rand(samerng(), value(FDNUM))
         @test rand(samerng(), NESTED_FDNUM) == rand(samerng(), value(NESTED_FDNUM))
     elseif V <: AbstractFloat
         @test rand(samerng(), typeof(FDNUM)) === Dual{TestTag}(rand(samerng(), V), zero(Partials{N,V}))
-        @test rand(samerng(), typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(rand(samerng(), V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M}}))
+        @test rand(samerng(), typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(rand(samerng(), V), zero(Partials{M,V})), zero(Partials{N,Dual{TestTag,V,M,W}}))
         @test randn(samerng(), typeof(FDNUM)) === Dual{TestTag}(randn(samerng(), V), zero(Partials{N,V}))
         @test randn(samerng(), typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(randn(samerng(), V), zero(Partials{M,V})),
-        zero(Partials{N,Dual{TestTag,V,M}}))
+        zero(Partials{N,Dual{TestTag,V,M,W}}))
         @test randexp(samerng(), typeof(FDNUM)) === Dual{TestTag}(randexp(samerng(), V), zero(Partials{N,V}))
         @test randexp(samerng(), typeof(NESTED_FDNUM)) === Dual{TestTag}(Dual{TestTag}(randexp(samerng(), V), zero(Partials{M,V})),
-        zero(Partials{N,Dual{TestTag,V,M}}))
+        zero(Partials{N,Dual{TestTag,V,M,W}}))
     end
 
     # Predicates #
@@ -238,7 +238,7 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     @test ForwardDiff.isconstant(one(NESTED_FDNUM))
     @test ForwardDiff.isconstant(NESTED_FDNUM) == (N == 0)
 
-    # Recall that FDNUM = Dual{TestTag}(PRIMAL, PARTIALS) has N partials, 
+    # Recall that FDNUM = Dual{TestTag}(PRIMAL, PARTIALS) has N partials,
     # and FDNUM2 has everything with a 2, and all random numbers nonzero.
     # M is the length of M_PARTIALS, which affects:
     # NESTED_FDNUM = Dual{TestTag}(Dual{TestTag}(PRIMAL, M_PARTIALS), NESTED_PARTIALS)
@@ -250,12 +250,12 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     if PRIMAL == PRIMAL2
         @test isequal(FDNUM, Dual{TestTag}(PRIMAL, PARTIALS2)) == (PARTIALS == PARTIALS2)
         @test isequal(FDNUM, FDNUM2) == (PARTIALS == PARTIALS2)
-        
+
         @test (FDNUM == FDNUM2) == (PARTIALS == PARTIALS2)
         @test (NESTED_FDNUM == NESTED_FDNUM2) == ((M_PARTIALS == M_PARTIALS2) && (NESTED_PARTIALS == NESTED_PARTIALS2))
     else
         @test !isequal(FDNUM, FDNUM2)
-        
+
         @test FDNUM != FDNUM2
         @test NESTED_FDNUM != NESTED_FDNUM2
     end
@@ -353,36 +353,37 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     # Promotion/Conversion #
     ########################
 
-    WIDE_T = widen(V)
+    WIDE_V = widen(V)
+    WIDE_W = widen(W)
 
-    @test promote_type(Dual{TestTag,V,N}, V) == Dual{TestTag,V,N}
-    @test promote_type(Dual{TestTag,V,N}, WIDE_T) == Dual{TestTag,WIDE_T,N}
-    @test promote_type(Dual{TestTag,WIDE_T,N}, V) == Dual{TestTag,WIDE_T,N}
-    @test promote_type(Dual{TestTag,V,N}, Dual{TestTag,V,N}) == Dual{TestTag,V,N}
-    @test promote_type(Dual{TestTag,V,N}, Dual{TestTag,WIDE_T,N}) == Dual{TestTag,WIDE_T,N}
-    @test promote_type(Dual{TestTag,WIDE_T,N}, Dual{TestTag,Dual{TestTag,V,M},N}) == Dual{TestTag,Dual{TestTag,WIDE_T,M},N}
+    @test promote_type(Dual{TestTag,V,N,W}, V) == Dual{TestTag,V,N,W}
+    @test promote_type(Dual{TestTag,V,N,W}, WIDE_V) == Dual{TestTag,WIDE_V,N,WIDE_W}
+    @test promote_type(Dual{TestTag,WIDE_V,N,W}, V) == Dual{TestTag,WIDE_V,N,W}
+    @test promote_type(Dual{TestTag,V,N,W}, Dual{TestTag,V,N,W}) == Dual{TestTag,V,N,W}
+    @test promote_type(Dual{TestTag,V,N,W}, Dual{TestTag,WIDE_V,N,W}) == Dual{TestTag,WIDE_V,N,W}
+    @test promote_type(Dual{TestTag,WIDE_V,N,W}, Dual{TestTag,Dual{TestTag,V,M,W},N,W}) == Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,W}
 
     # issue #322
-    @test promote_type(Bool, Dual{TestTag,V,N}) == Dual{TestTag,promote_type(Bool, V),N}
-    @test promote_type(BigFloat, Dual{TestTag,V,N}) == Dual{TestTag,promote_type(BigFloat, V),N}
+    @test promote_type(Bool, Dual{TestTag,V,N,W}) == Dual{TestTag,promote_type(Bool, V),N,promote_type(Bool, W)}
+    @test promote_type(BigFloat, Dual{TestTag,V,N,W}) == Dual{TestTag,promote_type(BigFloat, V),N,promote_type(BigFloat,W)}
 
-    WIDE_FDNUM = convert(Dual{TestTag,WIDE_T,N}, FDNUM)
-    WIDE_NESTED_FDNUM = convert(Dual{TestTag,Dual{TestTag,WIDE_T,M},N}, NESTED_FDNUM)
+    WIDE_FDNUM = convert(Dual{TestTag,WIDE_V,N,W}, FDNUM)
+    WIDE_NESTED_FDNUM = convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, NESTED_FDNUM)
 
-    @test typeof(WIDE_FDNUM) === Dual{TestTag,WIDE_T,N}
-    @test typeof(WIDE_NESTED_FDNUM) === Dual{TestTag,Dual{TestTag,WIDE_T,M},N}
+    @test typeof(WIDE_FDNUM) === Dual{TestTag,WIDE_V,N,WIDE_W}
+    @test typeof(WIDE_NESTED_FDNUM) === Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}
 
     @test value(WIDE_FDNUM) == PRIMAL
     @test (value(WIDE_NESTED_FDNUM) == PRIMAL) == (M == 0)
 
     @test convert(Dual, FDNUM) === FDNUM
     @test convert(Dual, NESTED_FDNUM) === NESTED_FDNUM
-    @test convert(Dual{TestTag,V,N}, FDNUM) === FDNUM
-    @test convert(Dual{TestTag,Dual{TestTag,V,M},N}, NESTED_FDNUM) === NESTED_FDNUM
-    @test convert(Dual{TestTag,WIDE_T,N}, PRIMAL) === Dual{TestTag}(WIDE_T(PRIMAL), zero(Partials{N,WIDE_T}))
-    @test convert(Dual{TestTag,Dual{TestTag,WIDE_T,M},N}, PRIMAL) === Dual{TestTag}(Dual{TestTag}(WIDE_T(PRIMAL), zero(Partials{M,WIDE_T})), zero(Partials{N,Dual{TestTag,V,M}}))
-    @test convert(Dual{TestTag,Dual{TestTag,V,M},N}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,V,M}, PRIMAL), convert(Partials{N,Dual{TestTag,V,M}}, PARTIALS))
-    @test convert(Dual{TestTag,Dual{TestTag,WIDE_T,M},N}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,WIDE_T,M}, PRIMAL), convert(Partials{N,Dual{TestTag,WIDE_T,M}}, PARTIALS))
+    @test convert(Dual{TestTag,V,N,W}, FDNUM) === FDNUM
+    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,W}, NESTED_FDNUM) === NESTED_FDNUM
+    @test convert(Dual{TestTag,WIDE_V,N,W}, PRIMAL) === Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{N,WIDE_V}))
+    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,W},N,W}, PRIMAL) === Dual{TestTag}(Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{M,WIDE_V})), zero(Partials{N,Dual{TestTag,V,M,W}}))
+    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,W}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,V,M,W}, PRIMAL), convert(Partials{N,Dual{TestTag,V,M,W}}, PARTIALS))
+    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,WIDE_V,M,W}, PRIMAL), convert(Partials{N,Dual{TestTag,WIDE_V,M,W}}, PARTIALS))
 
     ##############
     # Arithmetic #
@@ -637,7 +638,8 @@ end
     @test isfinite(dfmin)
     @test isfinite(dfmax)
 
-  @test floatmin(Dual{Nothing, ForwardDiff.Dual{Nothing, Float64, 2}, 1}) === Dual{Nothing}(Dual{Nothing}(floatmin(Float64),0.0,0.0),Dual{Nothing}(0.0,0.0,0.0))
+    DF = Dual{Nothing, Float64, 2, Float64}
+  @test floatmin(Dual{Nothing, DF, 1, DF}) === Dual{Nothing}(Dual{Nothing}(floatmin(Float64),0.0,0.0),Dual{Nothing}(0.0,0.0,0.0))
 end
 
 @testset "Integer" begin
@@ -662,8 +664,8 @@ end
 end
 
 @testset "float" begin # issue #492
-    @test float(Dual{Nothing, Int, 2}) === Dual{Nothing, Float64, 2}
-    @test float(Dual(1)) isa Dual{Nothing, Float64, 0}
+    @test float(Dual{Nothing, Int, 2, Int}) === Dual{Nothing, Float64, 2, Float64}
+    @test float(Dual(1)) isa Dual{Nothing, Float64, 0, Float64}
     @test value.(float.(Dual.(1:4, 2:5, 3:6))) isa Vector{Float64}
     @test ForwardDiff.derivative(float, 1)::Float64 === 1.0
 end
