@@ -367,7 +367,7 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     @test promote_type(Bool, Dual{TestTag,V,N,W}) == Dual{TestTag,promote_type(Bool, V),N,promote_type(Bool, W)}
     @test promote_type(BigFloat, Dual{TestTag,V,N,W}) == Dual{TestTag,promote_type(BigFloat, V),N,promote_type(BigFloat,W)}
 
-    WIDE_FDNUM = convert(Dual{TestTag,WIDE_V,N,W}, FDNUM)
+    WIDE_FDNUM = convert(Dual{TestTag,WIDE_V,N,WIDE_W}, FDNUM)
     WIDE_NESTED_FDNUM = convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, NESTED_FDNUM)
 
     @test typeof(WIDE_FDNUM) === Dual{TestTag,WIDE_V,N,WIDE_W}
@@ -379,11 +379,13 @@ ForwardDiff.:≺(::Type{OuterTestTag}, ::Type{TestTag}) = false
     @test convert(Dual, FDNUM) === FDNUM
     @test convert(Dual, NESTED_FDNUM) === NESTED_FDNUM
     @test convert(Dual{TestTag,V,N,W}, FDNUM) === FDNUM
-    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,W}, NESTED_FDNUM) === NESTED_FDNUM
-    @test convert(Dual{TestTag,WIDE_V,N,W}, PRIMAL) === Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{N,WIDE_V}))
-    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,W},N,W}, PRIMAL) === Dual{TestTag}(Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{M,WIDE_V})), zero(Partials{N,Dual{TestTag,V,M,W}}))
-    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,W}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,V,M,W}, PRIMAL), convert(Partials{N,Dual{TestTag,V,M,W}}, PARTIALS))
-    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,WIDE_V,M,W}, PRIMAL), convert(Partials{N,Dual{TestTag,WIDE_V,M,W}}, PARTIALS))
+    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,Dual{TestTag,V,M,W}}, NESTED_FDNUM) === NESTED_FDNUM
+    @test convert(Dual{TestTag,WIDE_V,N,WIDE_W}, PRIMAL) === Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{N,WIDE_V}))
+    println("V=$V W = $W M = $M N = $N")
+    RHS = Dual{TestTag}(Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{M,WIDE_V})), zero(Partials{N,Dual{TestTag,V,M,W}}))
+    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, PRIMAL) === Dual{TestTag}(Dual{TestTag}(WIDE_V(PRIMAL), zero(Partials{M,WIDE_V})), zero(Partials{N,Dual{TestTag,V,M,W}}))
+    @test convert(Dual{TestTag,Dual{TestTag,V,M,W},N,Dual{TestTag,V,M,W}}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,V,M,W}, PRIMAL), convert(Partials{N,Dual{TestTag,V,M,W}}, PARTIALS))
+    @test convert(Dual{TestTag,Dual{TestTag,WIDE_V,M,WIDE_W},N,Dual{TestTag,WIDE_V,M,WIDE_W}}, FDNUM) === Dual{TestTag}(convert(Dual{TestTag,WIDE_V,M,WIDE_W}, PRIMAL), convert(Partials{N,Dual{TestTag,WIDE_V,M,WIDE_W}}, PARTIALS))
 
     ##############
     # Arithmetic #

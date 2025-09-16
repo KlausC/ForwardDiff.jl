@@ -192,12 +192,13 @@ function JacobianConfig(f::F,
                         ::T = Tag(f, X),
                         ::Type{C} = Real) where {F,Y,X,N,T,C}
 
-    W = C <: Complex ? Complex{X} : X
+    WX = C <: Complex ? Complex{X} : X
+    WY = C <: Complex ? Complex{Y} : Y
     seeds = construct_seeds(Partials{N,WX})
-    yduals = similar(y, Dual{T,Y,N,W})
-    xduals = similar(x, Dual{T,X,N,W})
+    yduals = similar(y, Dual{T,Y,N,WY})
+    xduals = similar(x, Dual{T,X,N,WX})
     duals = (yduals, xduals)
-    return JacobianConfig{T,X,N,typeof(duals),W}(seeds, duals)
+    return JacobianConfig{T,X,N,typeof(duals),WX}(seeds, duals)
 end
 
 checktag(::JacobianConfig{T},f,x) where {T} = checktag(T,f,x)
@@ -209,7 +210,7 @@ Base.eltype(::Type{JacobianConfig{T,V,N,D,W}}) where {T,V,N,D,W} = Dual{T,V,N,W}
 
 struct HessianConfig{T,V,N,DG,DJ,W} <: AbstractConfig{N}
     jacobian_config::JacobianConfig{T,V,N,DJ,W}
-    gradient_config::GradientConfig{T,Dual{T,V,N,W},N,DG,W}
+    gradient_config::GradientConfig{T,Dual{T,V,N,W},N,DG,Dual{T,V,N,W}}
 end
 
 """

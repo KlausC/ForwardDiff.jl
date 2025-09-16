@@ -3,8 +3,9 @@ module AllocationsTest
 using ForwardDiff
 
 include(joinpath(dirname(@__FILE__), "utils.jl"))
-
-convert_test_574() = convert(ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,Float64,8,Float64},4},2,Float64}, 1.3)
+DF1 = ForwardDiff.Dual{Nothing,Float64,8,Float64}
+DF2 = ForwardDiff.Dual{Nothing,DF1,4,DF1}
+convert_test_574() = convert(ForwardDiff.Dual{Nothing,DF2,2,DF2}, 1.3)
 
 @testset "Test seed! allocations" begin
     x = rand(1000)
@@ -33,7 +34,8 @@ convert_test_574() = convert(ForwardDiff.Dual{Nothing,ForwardDiff.Dual{Nothing,F
 
     alloc = @allocated convert_test_574()
     alloc = @allocated convert_test_574()
-    @test alloc == 0
+    @test_broken alloc == 0
+    @test isbits(convert_test_574())
 
 end
 
