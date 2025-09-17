@@ -6,9 +6,9 @@
     ForwardDiff.can_dual(V::Type)
 
 Determines whether the type V is allowed as the scalar type in a
-Dual. By default, only `<:Real` types are allowed.
+Dual. By default, only `<:RealComplex` types are allowed.
 """
-can_dual(::Type{<:Real}) = true
+can_dual(::Type{<:RealComplex}) = true
 can_dual(::Type) = false
 
 struct Dual{T,V,N,W} <: Real
@@ -211,10 +211,10 @@ macro define_ternary_dual_op(f, xyz_body, xy_body, xz_body, yz_body, x_body, y_b
 end
 
 # Support complex-valued functions such as `hankelh1`
-function dual_definition_retval(::Val{T}, val::Real, deriv::Real, partial::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::RealComplex, deriv::RealComplex, partial::Partials) where {T}
     return Dual{T}(val, deriv * partial)
 end
-function dual_definition_retval(::Val{T}, val::Real, deriv1::Real, partial1::Partials, deriv2::Real, partial2::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::RealComplex, deriv1::RealComplex, partial1::Partials, deriv2::RealComplex, partial2::Partials) where {T}
     return Dual{T}(val, _mul_partials(partial1, partial2, deriv1, deriv2))
 end
 function dual_definition_retval(::Val{T}, val::Complex, deriv::Union{Real,Complex}, partial::Partials) where {T}
@@ -647,7 +647,7 @@ end
 end
 
 @generated function calc_fma_xz(x::Dual{T,<:Any,N},
-                                y::Real,
+                                y::RealComplex,
                                 z::Dual{T,<:Any,N}) where {T,N}
     ex = Expr(:tuple, [:(fma(partials(x)[$i], y,  partials(z)[$i])) for i in 1:N]...)
     return quote
