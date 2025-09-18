@@ -6,9 +6,9 @@
     ForwardDiff.can_dual(V::Type)
 
 Determines whether the type V is allowed as the scalar type in a
-Dual. By default, only `<:Real` types are allowed.
+Dual. By default, only `<:RealComplex` types are allowed.
 """
-can_dual(::Type{<:Real}) = true
+can_dual(::Type{<:RealComplex}) = true
 can_dual(::Type) = false
 
 struct Dual{T,V,N} <: Real
@@ -19,6 +19,8 @@ struct Dual{T,V,N} <: Real
         new{T, V, N}(value, partials)
     end
 end
+
+const CDual{T,V,N} = Union{Dual{T,V,N}, Complex{Dual{T,V,N}}}
 
 ##########
 # Traits #
@@ -211,10 +213,10 @@ macro define_ternary_dual_op(f, xyz_body, xy_body, xz_body, yz_body, x_body, y_b
 end
 
 # Support complex-valued functions such as `hankelh1`
-function dual_definition_retval(::Val{T}, val::Real, deriv::Real, partial::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::RealComplex, deriv::RealComplex, partial::Partials) where {T}
     return Dual{T}(val, deriv * partial)
 end
-function dual_definition_retval(::Val{T}, val::Real, deriv1::Real, partial1::Partials, deriv2::Real, partial2::Partials) where {T}
+function dual_definition_retval(::Val{T}, val::RealComplex, deriv1::RealComplex, partial1::Partials, deriv2::RealComplex, partial2::Partials) where {T}
     return Dual{T}(val, _mul_partials(partial1, partial2, deriv1, deriv2))
 end
 function dual_definition_retval(::Val{T}, val::Complex, deriv::Union{Real,Complex}, partial::Partials) where {T}
@@ -804,14 +806,14 @@ end
 # Their derivatives are not defined in DiffRules    #
 #---------------------------------------------------#
 
-function SpecialFunctions.logabsgamma(d::Dual{T,<:Real}) where {T}
+function SpecialFunctions.logabsgamma(d::Dual{T}) where {T}
     x = value(d)
     y, s = SpecialFunctions.logabsgamma(x)
     return (Dual{T}(y, SpecialFunctions.digamma(x) * partials(d)), s)
 end
 
 # Derivatives wrt to first parameter and precision setting are not supported
-function SpecialFunctions.gamma_inc(a::Real, d::Dual{T,<:Real}, ind::Integer) where {T}
+function SpecialFunctions.gamma_inc(a::Real, d::Dual{T}, ind::Integer) where {T}
     x = value(d)
     p, q = SpecialFunctions.gamma_inc(a, x, ind)
     ∂p = exp(-x) * x^(a - 1) / SpecialFunctions.gamma(a) * partials(d)

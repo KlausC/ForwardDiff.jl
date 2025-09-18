@@ -8,6 +8,7 @@ using ForwardDiff: Dual, partials, npartials, Partials, GradientConfig, Jacobian
                    extract_gradient!, extract_jacobian!, extract_value!,
                    vector_mode_gradient, vector_mode_gradient!,
                    vector_mode_jacobian, vector_mode_jacobian!, valtype, value
+using ForwardDiff: RealComplex
 using DiffResults: DiffResult, ImmutableDiffResult, MutableDiffResult
 
 @generated function dualize(::Type{T}, x::StaticArray) where T
@@ -24,10 +25,10 @@ end
 @inline static_dual_eval(::Type{T}, f::F, x::StaticArray) where {T,F} = f(dualize(T, x))
 
 # To fix method ambiguity issues:
-function LinearAlgebra.eigvals(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N}
+function LinearAlgebra.eigvals(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:RealComplex,N}
     return ForwardDiff._eigvals(A)
 end
-function LinearAlgebra.eigen(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:Real,N}
+function LinearAlgebra.eigen(A::Symmetric{<:Dual{Tg,T,N}, <:StaticArrays.StaticMatrix}) where {Tg,T<:RealComplex,N}
     return ForwardDiff._eigen(A)
 end
 
@@ -43,7 +44,7 @@ ForwardDiff._lyap_div!!(A::StaticArrays.MMatrix, λ::AbstractVector) = ForwardDi
 @inline ForwardDiff.gradient!(result::Union{AbstractArray,DiffResult}, f::F, x::StaticArray, cfg::GradientConfig) where {F} = gradient!(result, f, x)
 @inline ForwardDiff.gradient!(result::Union{AbstractArray,DiffResult}, f::F, x::StaticArray, cfg::GradientConfig, ::Val) where {F} = gradient!(result, f, x)
 
-@generated function extract_gradient(::Type{T}, y::Real, x::S) where {T,S<:StaticArray}
+@generated function extract_gradient(::Type{T}, y::RealComplex, x::S) where {T,S<:StaticArray}
     result = Expr(:tuple, [:(partials(T, y, $i)) for i in 1:length(x)]...)
     return quote
         $(Expr(:meta, :inline))

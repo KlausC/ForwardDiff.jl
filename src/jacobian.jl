@@ -86,7 +86,7 @@ function jacobian!(result::Union{AbstractArray,DiffResult}, f!::F, y::AbstractAr
     return result
 end
 
-jacobian(f, x::Real) = throw(DimensionMismatch("jacobian(f, x) expects that x is an array. Perhaps you meant derivative(f, x)?"))
+jacobian(f, x::RealComplex) = throw(DimensionMismatch("jacobian(f, x) expects that x is an array. Perhaps you meant derivative(f, x)?"))
 
 #####################
 # result extraction #

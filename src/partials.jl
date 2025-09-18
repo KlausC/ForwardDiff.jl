@@ -80,7 +80,7 @@ Base.convert(::Type{Partials{N,V}}, partials::Partials{N,V}) where {N,V} = parti
 @inline Base.:+(a::Partials{N}, b::Partials{N}) where {N} = Partials(add_tuples(a.values, b.values))
 @inline Base.:-(a::Partials{N}, b::Partials{N}) where {N} = Partials(sub_tuples(a.values, b.values))
 @inline Base.:-(partials::Partials) = Partials(minus_tuple(partials.values))
-@inline Base.:*(x::Real, partials::Partials) = partials*x
+@inline Base.:*(x::RealComplex, partials::Partials) = partials*x
 
 @inline function _div_partials(a::Partials, b::Partials, aval, bval)
     return _mul_partials(a, b, inv(bval), -(aval / (bval*bval)))
@@ -90,12 +90,12 @@ end
 #----------------------#
 
 if NANSAFE_MODE_ENABLED
-    @inline function Base.:*(partials::Partials, x::Real)
+    @inline function Base.:*(partials::Partials, x::RealComplex)
         x = ifelse(!isfinite(x) && iszero(partials), one(x), x)
         return Partials(scale_tuple(partials.values, x))
     end
 
-    @inline function Base.:/(partials::Partials, x::Real)
+    @inline function Base.:/(partials::Partials, x::RealComplex)
         x = ifelse(x == zero(x) && iszero(partials), one(x), x)
         return Partials(div_tuple_by_scalar(partials.values, x))
     end
@@ -106,11 +106,11 @@ if NANSAFE_MODE_ENABLED
         return Partials(mul_tuples(a.values, b.values, x_a, x_b))
     end
 else
-    @inline function Base.:*(partials::Partials, x::Real)
+    @inline function Base.:*(partials::Partials, x::RealComplex)
         return Partials(scale_tuple(partials.values, x))
     end
 
-    @inline function Base.:/(partials::Partials, x::Real)
+    @inline function Base.:/(partials::Partials, x::RealComplex)
         return Partials(div_tuple_by_scalar(partials.values, x))
     end
 
@@ -131,10 +131,10 @@ end
 @inline Base.:-(a::Partials{N,A}, b::Partials{0,B}) where {N,A,B} = convert(Partials{N,promote_type(A,B)}, a)
 @inline Base.:-(partials::Partials{0,V}) where {V} = partials
 
-@inline Base.:*(partials::Partials{0,V}, x::Real) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
-@inline Base.:*(x::Real, partials::Partials{0,V}) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
+@inline Base.:*(partials::Partials{0,V}, x::RealComplex) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
+@inline Base.:*(x::RealComplex, partials::Partials{0,V}) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
 
-@inline Base.:/(partials::Partials{0,V}, x::Real) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
+@inline Base.:/(partials::Partials{0,V}, x::RealComplex) where {V} = Partials{0,promote_type(V,typeof(x))}(tuple())
 
 @inline _mul_partials(a::Partials{0,A}, b::Partials{0,B}, afactor, bfactor) where {A,B} = Partials{0,promote_type(A,B)}(tuple())
 @inline _mul_partials(a::Partials{0,A}, b::Partials{N,B}, afactor, bfactor) where {N,A,B} = bfactor * b

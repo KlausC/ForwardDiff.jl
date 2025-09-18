@@ -64,7 +64,7 @@ struct DerivativeConfig{T,D} <: AbstractConfig{1}
 end
 
 """
-    ForwardDiff.DerivativeConfig(f!, y::AbstractArray, x::Real)
+    ForwardDiff.DerivativeConfig(f!, y::AbstractArray, x::RealComplex)
 
 Return a `DerivativeConfig` instance based on the type of `f!`, and the types/shapes of the
 output vector `y` and the input value `x`.
@@ -82,7 +82,7 @@ This constructor does not store/modify `y` or `x`.
 function DerivativeConfig(f::F,
                           y::AbstractArray{Y},
                           x::X,
-                          tag::T = Tag(f, X)) where {F,X<:Real,Y<:Real,T}
+                          tag::T = Tag(f, X)) where {F,X<:RealComplex,Y<:RealComplex,T}
     duals = similar(y, Dual{T,Y,1})
     return DerivativeConfig{T,typeof(duals)}(duals)
 end

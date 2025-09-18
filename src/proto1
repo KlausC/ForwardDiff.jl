@@ -1,0 +1,114 @@
+
+  Activating project at `~/dev/ForwardDiff.jl` 2025-09-18
+
+(ForwardDiff) pkg> test
+     Testing ForwardDiff
+      Status `/tmp/jl_ojNDv0/Project.toml`
+  [49dc2e85] Calculus v0.5.2
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.15.1
+  [de460e47] DiffTests v0.1.2
+  [f6369f11] ForwardDiff v1.2.1 `~/dev/ForwardDiff.jl`
+  [92d709cd] IrrationalConstants v0.2.4
+  [2ab3a3ac] LogExpFunctions v0.3.29
+  [77ba4419] NaNMath v1.1.3
+  [21216c6a] Preferences v1.5.0
+  [276daf66] SpecialFunctions v2.5.1
+  [90137ffa] StaticArrays v1.9.15
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [37e2e46d] LinearAlgebra v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+  [8dfed614] Test v1.11.0
+      Status `/tmp/jl_ojNDv0/Manifest.toml`
+  [49dc2e85] Calculus v0.5.2
+  [bbf7d656] CommonSubexpressions v0.3.1
+  [163ba53b] DiffResults v1.1.0
+  [b552c78f] DiffRules v1.15.1
+  [de460e47] DiffTests v0.1.2
+  [ffbed154] DocStringExtensions v0.9.5
+  [f6369f11] ForwardDiff v1.2.1 `~/dev/ForwardDiff.jl`
+  [92d709cd] IrrationalConstants v0.2.4
+  [692b3bcd] JLLWrappers v1.7.1
+  [2ab3a3ac] LogExpFunctions v0.3.29
+  [1914dd2f] MacroTools v0.5.16
+  [77ba4419] NaNMath v1.1.3
+⌅ [aea7be01] PrecompileTools v1.2.1
+  [21216c6a] Preferences v1.5.0
+  [276daf66] SpecialFunctions v2.5.1
+  [90137ffa] StaticArrays v1.9.15
+  [1e83bf80] StaticArraysCore v1.4.3
+  [10745b16] Statistics v1.11.1
+  [efe28fd5] OpenSpecFun_jll v0.5.6+0
+  [56f22d72] Artifacts v1.11.0
+  [2a0f44e3] Base64 v1.11.0
+  [ade2ca70] Dates v1.11.0
+  [b77e0a4c] InteractiveUtils v1.11.0
+  [8f399da3] Libdl v1.11.0
+  [37e2e46d] LinearAlgebra v1.11.0
+  [56ddb016] Logging v1.11.0
+  [d6f4376e] Markdown v1.11.0
+  [de0858da] Printf v1.11.0
+  [9a3f8284] Random v1.11.0
+  [ea8e919c] SHA v0.7.0
+  [9e88b42a] Serialization v1.11.0
+  [2f01184e] SparseArrays v1.11.0
+  [fa267f1f] TOML v1.0.3
+  [8dfed614] Test v1.11.0
+  [4ec0a83e] Unicode v1.11.0
+  [e66e0078] CompilerSupportLibraries_jll v1.1.1+0
+  [4536629a] OpenBLAS_jll v0.3.27+1
+  [05823500] OpenLibm_jll v0.8.5+0
+  [bea87d4a] SuiteSparse_jll v7.7.0+0
+  [8e850b90] libblastrampoline_jll v5.11.0+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading.
+Precompiling project for configuration --code-coverage=none --color=yes --check-bounds=yes --warn-overwrite=yes --depwarn=yes --inline=yes --startup-file=no --track-allocation=none...
+  2 dependencies successfully precompiled in 7 seconds. 34 already precompiled.
+     Testing Running tests...
+##### Random.seed!(1758207326), on VERSION == 1.11.6
+##### Testing Partials...
+##### done (took 2.831188041 seconds).
+##### Testing Dual...
+┌ Info: testing with non-unique primals
+│   PRIMAL = 10
+│   PRIMAL2 = 4
+└   PRIMAL3 = 10
+┌ Info: testing with non-unique primals
+│   PRIMAL = 10
+│   PRIMAL2 = 4
+└   PRIMAL3 = 10
+Testing @printf: 1.00e+00
+Testing @printf: 1.00e+00
+Testing @printf: 1.00e+00
+Testing @printf: 1.00e+00
+##### done (took 29.434353504 seconds).
+##### Testing derivative functionality...
+##### done (took 8.614610991 seconds).
+##### Testing gradient functionality...
+##### done (took 104.008426044 seconds).
+##### Testing jacobian functionality...
+  ...running hardcoded test with chunk size = 1 and tag = (nothing, nothing)
+  ...running hardcoded test with chunk size = 1 and tag = (ForwardDiff.Tag{Main.JacobianTest.var"#3#4", Int64}(), ForwardDiff.Tag{Main.JacobianTest.var"#1#2", Int64}())
+  ...running hardcoded test with chunk size = 2 and tag = (nothing, nothing)
+  ...running hardcoded test with chunk size = 2 and tag = (ForwardDiff.Tag{Main.JacobianTest.var"#3#4", Int64}(), ForwardDiff.Tag{Main.JacobianTest.var"#1#2", Int64}())
+  ...running hardcoded test with chunk size = 3 and tag = (nothing, nothing)
+  ...running hardcoded test with chunk size = 3 and tag = (ForwardDiff.Tag{Main.JacobianTest.var"#3#4", Int64}(), ForwardDiff.Tag{Main.JacobianTest.var"#1#2", Int64}())
+[ Info: testing specialized StaticArray codepaths
+##### done (took 142.364473637 seconds).
+##### Testing hessian functionality...
+[ Info: testing specialized StaticArray codepaths
+##### done (took 143.150973803 seconds).
+##### Testing perturbation confusion functionality...
+##### done (took 10.766837128 seconds).
+##### Testing miscellaneous functionality...
+##### done (took 30.233302829 seconds).
+##### Testing allocations...
+##### done (took 0.77169976 seconds).
+##### Running all ForwardDiff tests took 472.17909812927246 seconds.
+Test Summary:  | Pass  Total     Time
+ForwardDiff.jl | 7421   7421  7m52.2s
+     Testing ForwardDiff tests passed 
+
+(ForwardDiff) pkg> 
